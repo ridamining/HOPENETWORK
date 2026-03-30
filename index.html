@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HOPE NETWORK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0a0c10; color: #eef2ff; }
+        .glass {
+            background: rgba(18, 25, 45, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 2rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+            transition: all 0.2s ease;
+            font-weight: 700;
+            border-radius: 1.5rem;
+        }
+        .btn-primary:active { transform: scale(0.97); }
+        .page { display: none; animation: fade 0.3s ease; padding-bottom: 6rem; }
+        .active-page { display: block; }
+        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+        .nav-item {
+            color: #6c7a8e;
+            font-weight: 600;
+            font-size: 0.7rem;
+            transition: 0.2s;
+        }
+        .nav-active { color: #8b5cf6; text-shadow: 0 0 5px rgba(139,92,246,0.5); }
+        .badge-verified { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid #22c55e40; }
+        .badge-unverified { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid #ef444440; }
+        .mining-ring {
+            box-shadow: 0 0 20px rgba(99,102,241,0.3);
+            transition: all 0.2s;
+        }
+        .toast {
+            position: fixed;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            border-radius: 2rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.75rem;
+            z-index: 200;
+            border-left: 4px solid #4f46e5;
+            display: none;
+            white-space: nowrap;
+        }
+        .loader { border: 2px solid #ffffff20; border-top: 2px solid #8b5cf6; border-radius: 50%; width: 1rem; height: 1rem; animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0f1222; }
+        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
+        input, textarea { background: #0f1222; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 0.75rem 1rem; color: white; font-size: 0.85rem; outline: none; }
+        input:focus, textarea:focus { border-color: #8b5cf6; }
+    </style>
+</head>
+<body class="p-4 max-w-md mx-auto relative">
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="toast"></div>
+
+    <!-- AUTH PAGE -->
+    <div id="authPage" class="min-h-screen flex flex-col justify-center">
+        <div class="text-center mb-10">
+            <h1 class="text-5xl font-black tracking-tighter bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">HOPE</h1>
+            <p class="text-xs text-slate-500 mt-2">Decentralized Digital Asset</p>
+        </div>
+        <div class="glass p-6 space-y-4">
+            <div id="regFields" class="hidden space-y-4">
+                <input type="text" id="regName" placeholder="Full Name" class="w-full">
+                <input type="text" id="regRef" placeholder="Referral Code (optional)" class="w-full">
+            </div>
+            <input type="email" id="loginEmail" placeholder="Email address" class="w-full">
+            <input type="password" id="loginPass" placeholder="Password" class="w-full">
+            <button id="authBtn" onclick="handleAuth()" class="w-full py-3 btn-primary uppercase tracking-wider text-sm">Continue</button>
+            <p class="text-center text-xs text-slate-400 cursor-pointer" onclick="toggleAuthMode()">
+                <span id="authToggleText">Create new account →</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 id="userName" class="text-xl font-bold">---</h2>
+                    <span id="verifyBadge" class="text-[10px] px-2 py-0.5 rounded-full badge-unverified">Unverified</span>
+                </div>
+                <p id="userUid" class="text-[10px] font-mono text-indigo-300/70">HOPE-XXXX</p>
+            </div>
+            <div class="text-right">
+                <p id="userBalance" class="text-3xl font-black">0.00</p>
+                <p class="text-[9px] uppercase tracking-wider text-slate-400">HOPE Balance</p>
+            </div>
+        </div>
+
+        <!-- Pages -->
+        <div id="homePage" class="page active-page space-y-6">
+            <div class="glass p-4 border-l-4 border-indigo-500">
+                <p class="text-[10px] font-bold uppercase text-indigo-400">📢 Network Update</p>
+                <p id="announcementText" class="text-sm mt-1 italic">Syncing...</p>
+            </div>
+            <div class="glass p-8 text-center">
+                <div class="relative w-44 h-44 mx-auto flex items-center justify-center rounded-full mining-ring border-2 border-indigo-500/40">
+                    <div id="miningPulse" class="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping hidden"></div>
+                    <span id="miningValue" class="text-3xl font-black text-indigo-400">0.20</span>
+                </div>
+                <button id="mineActionBtn" onclick="handleMining()" class="mt-6 w-full py-3 btn-primary text-sm uppercase tracking-wider">Initialize Node</button>
+                <p id="miningStatusText" class="text-[11px] text-slate-400 mt-3">Ready to mine</p>
+            </div>
+
+            <!-- Quick stats -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass p-3 text-center">
+                    <p class="text-[10px] uppercase text-slate-400">Referrals</p>
+                    <p id="refCount" class="text-xl font-bold">0</p>
+                </div>
+                <div class="glass p-3 text-center">
+                    <p class="text-[10px] uppercase text-slate-400">Rank</p>
+                    <p id="userRank" class="text-xl font-bold">-</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="earnPage" class="page space-y-5">
+            <div class="glass p-5 text-center">
+                <p class="text-xs font-bold uppercase text-indigo-400">Your Referral Link</p>
+                <div class="flex mt-2 gap-2">
+                    <input id="refLink" readonly class="flex-1 text-xs bg-black/30">
+                    <button onclick="copyRefLink()" class="px-3 py-2 bg-indigo-600 rounded-xl text-xs font-bold">Copy</button>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-3">Share and earn 0.1 HOPE per referral</p>
+            </div>
+            <div class="glass p-5">
+                <p class="text-xs font-bold uppercase text-indigo-400 mb-2">Invite Leaderboard</p>
+                <div id="leaderboardList" class="space-y-2 max-h-60 overflow-y-auto text-sm"></div>
+            </div>
+        </div>
+
+        <div id="walletPage" class="page space-y-5">
+            <div class="glass p-5">
+                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-3">Send HOPE</h3>
+                <input id="p2pTarget" type="text" placeholder="Recipient UID" class="w-full mb-2">
+                <input id="p2pAmount" type="number" placeholder="Amount" class="w-full mb-3">
+                <button onclick="sendP2P()" class="w-full py-2 btn-primary text-xs uppercase">Transfer</button>
+            </div>
+            <div class="glass p-5">
+                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-3">Withdraw</h3>
+                <input id="withdrawAddr" type="text" placeholder="Wallet Address" class="w-full mb-2">
+                <input id="withdrawAmount" type="number" placeholder="Amount" class="w-full mb-3">
+                <button onclick="requestWithdraw()" class="w-full py-2 bg-purple-700 rounded-xl text-xs uppercase font-bold">Request Withdrawal</button>
+            </div>
+            <div class="glass p-5">
+                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">Recent Activity</h3>
+                <div id="txHistory" class="space-y-2 max-h-52 overflow-y-auto text-xs"></div>
+            </div>
+        </div>
+
+        <div id="profilePage" class="page space-y-5">
+            <div class="glass p-5">
+                <p class="text-xs uppercase text-indigo-400">Account Details</p>
+                <p class="text-sm mt-1"><span class="text-slate-400">Name:</span> <span id="profileName"></span></p>
+                <p class="text-sm"><span class="text-slate-400">Email:</span> <span id="profileEmail"></span></p>
+                <p class="text-sm"><span class="text-slate-400">UID:</span> <span id="profileUid"></span></p>
+                <p class="text-sm"><span class="text-slate-400">Verified:</span> <span id="profileVerified"></span></p>
+            </div>
+            <div class="glass p-5">
+                <h3 class="text-xs font-bold uppercase text-indigo-400 mb-2">Support Chat</h3>
+                <div id="chatBox" class="h-40 overflow-y-auto space-y-2 bg-black/20 rounded-xl p-2 text-xs mb-2"></div>
+                <div class="flex gap-2">
+                    <input id="chatMsg" type="text" placeholder="Type a message..." class="flex-1 text-xs">
+                    <button onclick="sendChat()" class="px-3 py-2 bg-indigo-600 rounded-xl text-xs">Send</button>
+                </div>
+            </div>
+            <button onclick="logout()" class="w-full text-center text-red-400/70 text-xs uppercase font-bold py-4">Disconnect Wallet</button>
+        </div>
+
+        <div id="adminPage" class="page space-y-5">
+            <div class="glass p-5">
+                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">Broadcast Announcement</h3>
+                <textarea id="adminAnnounce" rows="2" class="w-full text-xs mb-2" placeholder="Message to all users..."></textarea>
+                <button onclick="postAnnouncement()" class="w-full py-2 bg-indigo-600 rounded-xl text-xs font-bold">Post</button>
+            </div>
+            <div class="glass p-5">
+                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">System Settings</h3>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs">Mining Rate (HOPE/day)</span>
+                    <input id="miningRateInput" type="number" step="0.01" class="w-24 text-xs">
+                    <button onclick="updateMiningRate()" class="px-3 py-1 bg-indigo-500 rounded-xl text-xs">Set</button>
+                </div>
+            </div>
+            <div class="glass p-5">
+                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">User Messages & Verify</h3>
+                <div id="adminChatList" class="space-y-3 max-h-80 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-md glass flex justify-around py-2 px-3 rounded-2xl z-50">
+            <button onclick="showPage('home')" class="nav-item flex flex-col items-center gap-0.5 nav-active" id="nav-home">⚡<span class="text-[9px]">Mine</span></button>
+            <button onclick="showPage('earn')" class="nav-item flex flex-col items-center gap-0.5" id="nav-earn">📢<span class="text-[9px]">Earn</span></button>
+            <button onclick="showPage('wallet')" class="nav-item flex flex-col items-center gap-0.5" id="nav-wallet">💎<span class="text-[9px]">Wallet</span></button>
+            <button onclick="showPage('profile')" class="nav-item flex flex-col items-center gap-0.5" id="nav-profile">👤<span class="text-[9px]">Profile</span></button>
+            <button id="adminNavBtn" onclick="showPage('admin')" class="nav-item hidden flex flex-col items-center gap-0.5" id="nav-admin">⚙️<span class="text-[9px]">Admin</span></button>
+        </div>
+    </div>
+
+    <script>
+        // ========== CONFIGURATION ==========
+        const API_URL = "https://script.google.com/macros/s/AKfycbwSOSltLB5zJfrjFpcQDmbj1eDUQKybwauhSf8QNvtpfB-REn3FDw0mjQvk_pnMHJeLmw/exec";
+        let currentUser = null;
+        let syncInterval = null;
+
+        // Helper: JSONP call
+        function callApi(action, payload, callback) {
+            const callbackName = 'cb_' + Math.random().toString(36).substr(2);
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                if (callback) callback(data);
+            };
+            const script = document.createElement('script');
+            script.src = `${API_URL}?callback=${callbackName}&action=${action}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+            document.body.appendChild(script);
+        }
+
+        // Show toast
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.display = 'block';
+            toast.style.borderLeftColor = isError ? '#ef4444' : '#4f46e5';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        // Auth mode toggle
+        let isRegisterMode = false;
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            const regDiv = document.getElementById('regFields');
+            regDiv.classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('authToggleText').innerText = isRegisterMode ? '← Back to login' : 'Create new account →';
+            document.getElementById('authBtn').innerText = isRegisterMode ? 'Register Node' : 'Connect Node';
+        }
+
+        // Handle registration/login
+        function handleAuth() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const pass = document.getElementById('loginPass').value.trim();
+            if (!email || !pass) return showToast('Email and password required', true);
+            if (isRegisterMode) {
+                const name = document.getElementById('regName').value.trim();
+                if (!name) return showToast('Full name required', true);
+                const ref = document.getElementById('regRef').value.trim();
+                callApi('register', { email, pass, name, ref: ref || "none" }, (res) => {
+                    if (res.success) {
+                        showToast(res.msg || 'Registration success, please login');
+                        toggleAuthMode();
+                        document.getElementById('loginEmail').value = email;
+                        document.getElementById('loginPass').value = '';
+                    } else showToast(res.msg, true);
+                });
+            } else {
+                callApi('login', { email, pass }, (res) => {
+                    if (res.success) {
+                        currentUser = res.user;
+                        localStorage.setItem('hopeUser', JSON.stringify(currentUser));
+                        startApp();
+                    } else showToast(res.msg, true);
+                });
+            }
+        }
+
+        // Start main app after login
+        function startApp() {
+            document.getElementById('authPage').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            syncUserData();
+            if (syncInterval) clearInterval(syncInterval);
+            syncInterval = setInterval(syncUserData, 30000);
+        }
+
+        // Sync full user data from server
+        function syncUserData() {
+            if (!currentUser) return;
+            callApi('sync', { uid: currentUser.uid, email: currentUser.email }, (res) => {
+                if (res.success) {
+                    currentUser = res.user;
+                    localStorage.setItem('hopeUser', JSON.stringify(currentUser));
+                    renderUI(res);
+                } else {
+                    logout();
+                }
+            });
+            loadLeaderboard();
+        }
+
+        // Render dashboard with all data
+        function renderUI(data) {
+            document.getElementById('userName').innerText = currentUser.name;
+            document.getElementById('userUid').innerText = currentUser.uid;
+            document.getElementById('userBalance').innerText = parseFloat(currentUser.bal).toFixed(2);
+            document.getElementById('refCount').innerText = currentUser.refCount || 0;
+            document.getElementById('profileName').innerText = currentUser.name;
+            document.getElementById('profileEmail').innerText = currentUser.email;
+            document.getElementById('profileUid').innerText = currentUser.uid;
+            const verified = currentUser.verified === 'TRUE';
+            document.getElementById('profileVerified').innerHTML = verified ? '✅ Verified' : '❌ Not verified';
+            const badgeSpan = document.getElementById('verifyBadge');
+            if (verified) {
+                badgeSpan.className = 'text-[10px] px-2 py-0.5 rounded-full badge-verified';
+                badgeSpan.innerText = 'Verified';
+            } else {
+                badgeSpan.className = 'text-[10px] px-2 py-0.5 rounded-full badge-unverified';
+                badgeSpan.innerText = 'Unverified';
+            }
+
+            // Announcements
+            if (data.announcements && data.announcements.length) {
+                document.getElementById('announcementText').innerHTML = data.announcements[0][1];
+            }
+
+            // Transaction history
+            const txDiv = document.getElementById('txHistory');
+            if (data.transactions && data.transactions.length) {
+                txDiv.innerHTML = data.transactions.map(tx => `<div class="flex justify-between border-b border-white/10 py-1"><span>${tx.type}</span><span>${parseFloat(tx.amt).toFixed(2)} HOPE</span></div>`).join('');
+            } else txDiv.innerHTML = '<p class="text-center text-slate-500">No transactions</p>';
+
+            // Mining UI
+            updateMiningButton();
+            loadChatMessages();
+
+            // Admin check
+            if (currentUser.role === 'ADMIN') {
+                document.getElementById('adminNavBtn').classList.remove('hidden');
+                loadAdminMessages();
+            } else {
+                document.getElementById('adminNavBtn').classList.add('hidden');
+            }
+        }
+
+        // Mining logic
+        function updateMiningButton() {
+            const btn = document.getElementById('mineActionBtn');
+            const statusP = document.getElementById('miningStatusText');
+            const miningValueSpan = document.getElementById('miningValue');
+            const now = Date.now();
+            const lastMine = currentUser.lastMine || 0;
+            const diff = now - lastMine;
+            if (lastMine === 0) {
+                btn.innerText = 'Initialize Node';
+                btn.onclick = () => startMining();
+                statusP.innerText = 'Start your first mining cycle';
+                miningValueSpan.innerText = '0.20';
+            } else if (diff >= 86400000) {
+                btn.innerText = 'Claim 0.20 HOPE';
+                btn.onclick = () => claimMining();
+                statusP.innerText = 'Mining cycle complete!';
+                miningValueSpan.innerText = '0.20';
+            } else {
+                btn.disabled = true;
+                const remaining = 86400000 - diff;
+  

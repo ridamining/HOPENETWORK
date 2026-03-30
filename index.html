@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HOPE NETWORK</title>
+    <title>HOPE NETWORK | Decentralized Mining</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -34,10 +34,7 @@
         .nav-active { color: #8b5cf6; text-shadow: 0 0 5px rgba(139,92,246,0.5); }
         .badge-verified { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid #22c55e40; }
         .badge-unverified { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid #ef444440; }
-        .mining-ring {
-            box-shadow: 0 0 20px rgba(99,102,241,0.3);
-            transition: all 0.2s;
-        }
+        .mining-ring { box-shadow: 0 0 20px rgba(99,102,241,0.3); transition: all 0.2s; }
         .toast {
             position: fixed;
             bottom: 5rem;
@@ -59,6 +56,7 @@
         ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
         input, textarea { background: #0f1222; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 0.75rem 1rem; color: white; font-size: 0.85rem; outline: none; }
         input:focus, textarea:focus { border-color: #8b5cf6; }
+        .api-test { font-size: 0.7rem; background: #0f1222; padding: 0.25rem 0.5rem; border-radius: 0.5rem; margin-top: 0.5rem; }
     </style>
 </head>
 <body class="p-4 max-w-md mx-auto relative">
@@ -71,6 +69,7 @@
         <div class="text-center mb-10">
             <h1 class="text-5xl font-black tracking-tighter bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">HOPE</h1>
             <p class="text-xs text-slate-500 mt-2">Decentralized Digital Asset</p>
+            <div id="apiStatus" class="api-test mt-4 text-center"></div>
         </div>
         <div class="glass p-6 space-y-4">
             <div id="regFields" class="hidden space-y-4">
@@ -216,30 +215,49 @@
 
     <script>
         // ========== CONFIGURATION ==========
-        const API_URL = "https://script.google.com/macros/s/AKfycbwSOSltLB5zJfrjFpcQDmbj1eDUQKybwauhSf8QNvtpfB-REn3FDw0mjQvk_pnMHJeLmw/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbxuHLqQPQfqWtDT4ZGCwE_w1YypVYIS7TiJZ8vjudnKMi6zPI0T_IFKYE351g7GzOYinA/exec";
+        
         let currentUser = null;
         let syncInterval = null;
 
-        // Helper: JSONP call
+        // Helper: JSONP call with error handling
         function callApi(action, payload, callback) {
             const callbackName = 'cb_' + Math.random().toString(36).substr(2);
             window[callbackName] = function(data) {
                 delete window[callbackName];
-                document.body.removeChild(script);
+                if (document.body.contains(script)) document.body.removeChild(script);
                 if (callback) callback(data);
             };
             const script = document.createElement('script');
+            script.onerror = function() {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                if (callback) callback({ success: false, msg: "Network error - check backend URL" });
+            };
             script.src = `${API_URL}?callback=${callbackName}&action=${action}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
             document.body.appendChild(script);
         }
 
-        // Show toast
+        // Show toast notification
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
             toast.style.display = 'block';
             toast.style.borderLeftColor = isError ? '#ef4444' : '#4f46e5';
             setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        // Test API connectivity on page load
+        function testAPI() {
+            const statusDiv = document.getElementById('apiStatus');
+            statusDiv.innerHTML = '<span class="loader"></span> Testing connection...';
+            callApi('getSettings', {}, (res) => {
+                if (res && res.success !== undefined) {
+                    statusDiv.innerHTML = '✅ API connected';
+                } else {
+                    statusDiv.innerHTML = '❌ API unreachable. Check backend URL.';
+                }
+            });
         }
 
         // Auth mode toggle
@@ -298,6 +316,7 @@
                     localStorage.setItem('hopeUser', JSON.stringify(currentUser));
                     renderUI(res);
                 } else {
+                    showToast("Session expired. Please login again.", true);
                     logout();
                 }
             });
@@ -343,30 +362,4 @@
             if (currentUser.role === 'ADMIN') {
                 document.getElementById('adminNavBtn').classList.remove('hidden');
                 loadAdminMessages();
-            } else {
-                document.getElementById('adminNavBtn').classList.add('hidden');
-            }
-        }
-
-        // Mining logic
-        function updateMiningButton() {
-            const btn = document.getElementById('mineActionBtn');
-            const statusP = document.getElementById('miningStatusText');
-            const miningValueSpan = document.getElementById('miningValue');
-            const now = Date.now();
-            const lastMine = currentUser.lastMine || 0;
-            const diff = now - lastMine;
-            if (lastMine === 0) {
-                btn.innerText = 'Initialize Node';
-                btn.onclick = () => startMining();
-                statusP.innerText = 'Start your first mining cycle';
-                miningValueSpan.innerText = '0.20';
-            } else if (diff >= 86400000) {
-                btn.innerText = 'Claim 0.20 HOPE';
-                btn.onclick = () => claimMining();
-                statusP.innerText = 'Mining cycle complete!';
-                miningValueSpan.innerText = '0.20';
-            } else {
-                btn.disabled = true;
-                const remaining = 86400000 - diff;
-  
+          

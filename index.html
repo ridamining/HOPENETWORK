@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HOPE NETWORK | Decentralized Mining</title>
+    <title>HOPE NETWORK</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
@@ -51,12 +51,9 @@
         }
         .loader { border: 2px solid #ffffff20; border-top: 2px solid #8b5cf6; border-radius: 50%; width: 1rem; height: 1rem; animation: spin 0.8s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #0f1222; }
-        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
         input, textarea { background: #0f1222; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 0.75rem 1rem; color: white; font-size: 0.85rem; outline: none; }
         input:focus, textarea:focus { border-color: #8b5cf6; }
-        .api-status { font-size: 0.7rem; text-align: center; margin-top: 1rem; color: #4ade80; }
+        .debug-log { font-family: monospace; font-size: 0.7rem; background: #00000088; border-radius: 0.5rem; padding: 0.5rem; margin-top: 1rem; max-height: 120px; overflow-y: auto; color: #a0f; }
     </style>
 </head>
 <body class="p-4 max-w-md mx-auto relative">
@@ -66,10 +63,11 @@
 
     <!-- AUTH PAGE -->
     <div id="authPage" class="min-h-screen flex flex-col justify-center">
-        <div class="text-center mb-10">
+        <div class="text-center mb-6">
             <h1 class="text-5xl font-black tracking-tighter bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">HOPE</h1>
             <p class="text-xs text-slate-500 mt-2">Decentralized Digital Asset</p>
-            <div id="apiStatus" class="api-status mt-3">🔌 Checking connection...</div>
+            <button id="testApiBtn" class="mt-4 px-4 py-1 bg-indigo-800/50 rounded-full text-xs">🔌 Test API</button>
+            <div id="apiStatus" class="text-xs mt-2 text-slate-400">Not tested</div>
         </div>
         <div class="glass p-6 space-y-4">
             <div id="regFields" class="hidden space-y-4">
@@ -83,9 +81,13 @@
                 <span id="authToggleText">Create new account →</span>
             </p>
         </div>
+        <!-- Debug log area -->
+        <div id="debugLog" class="debug-log mt-4 text-[9px]">
+            📡 Ready. Click "Test API".
+        </div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- MAIN APP (full features) -->
     <div id="mainApp" class="hidden">
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
@@ -102,7 +104,7 @@
             </div>
         </div>
 
-        <!-- Pages -->
+        <!-- Pages (identical to previous full version) -->
         <div id="homePage" class="page active-page space-y-6">
             <div class="glass p-4 border-l-4 border-indigo-500">
                 <p class="text-[10px] font-bold uppercase text-indigo-400">📢 Network Update</p>
@@ -116,8 +118,6 @@
                 <button id="mineActionBtn" onclick="handleMining()" class="mt-6 w-full py-3 btn-primary text-sm uppercase tracking-wider">Initialize Node</button>
                 <p id="miningStatusText" class="text-[11px] text-slate-400 mt-3">Ready to mine</p>
             </div>
-
-            <!-- Quick stats -->
             <div class="grid grid-cols-2 gap-3">
                 <div class="glass p-3 text-center">
                     <p class="text-[10px] uppercase text-slate-400">Referrals</p>
@@ -215,47 +215,62 @@
 
     <script>
         // ========== CONFIGURATION ==========
-        // Your working backend URL (same as in the test)
         const API_URL = "https://script.google.com/macros/s/AKfycbxuHLqQPQfqWtDT4ZGCwE_w1YypVYIS7TiJZ8vjudnKMi6zPI0T_IFKYE351g7GzOYinA/exec";
-        
+
         let currentUser = null;
         let syncInterval = null;
 
-        // Helper: JSONP call with error handling
+        // Debug logging
+        function addDebugLog(msg, isError = false) {
+            const logDiv = document.getElementById('debugLog');
+            if (!logDiv) return;
+            const time = new Date().toLocaleTimeString();
+            const color = isError ? 'text-red-400' : 'text-indigo-300';
+            logDiv.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(msg);
+        }
+
+        // JSONP call (identical to working test)
         function callApi(action, payload, callback) {
+            addDebugLog(`Calling ${action}...`);
             const callbackName = 'cb_' + Math.random().toString(36).substr(2);
             window[callbackName] = function(data) {
+                addDebugLog(`Response ${action}: ${JSON.stringify(data).substring(0, 150)}`);
                 delete window[callbackName];
                 if (document.body.contains(script)) document.body.removeChild(script);
                 if (callback) callback(data);
             };
             const script = document.createElement('script');
             script.onerror = function() {
+                addDebugLog(`❌ Script load error for ${action}`, true);
                 delete window[callbackName];
                 document.body.removeChild(script);
-                if (callback) callback({ success: false, msg: "Network error - check backend URL" });
+                if (callback) callback({ success: false, msg: "Network error" });
             };
             script.src = `${API_URL}?callback=${callbackName}&action=${action}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
             document.body.appendChild(script);
         }
 
-        // Test API connectivity and show status
-        function checkAPIStatus() {
+        // Test API manually
+        function testApi() {
+            addDebugLog("🔌 Testing API connection...");
             const statusDiv = document.getElementById('apiStatus');
-            if (!statusDiv) return;
-            statusDiv.innerHTML = '🔌 <span class="loader"></span> Connecting...';
+            statusDiv.innerHTML = '<span class="loader"></span> Testing...';
             callApi('getSettings', {}, (res) => {
                 if (res && res.success !== undefined) {
-                    statusDiv.innerHTML = '✅ API connected';
+                    statusDiv.innerHTML = '✅ API connected!';
                     statusDiv.style.color = '#4ade80';
+                    addDebugLog("✅ API test succeeded");
                 } else {
                     statusDiv.innerHTML = '❌ API unreachable';
                     statusDiv.style.color = '#f87171';
+                    addDebugLog("❌ API test failed", true);
                 }
             });
         }
 
-        // Show toast notification
+        // Show toast
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
             toast.innerText = msg;
@@ -304,6 +319,7 @@
 
         // Start main app after login
         function startApp() {
+            addDebugLog("🚀 Starting main app");
             document.getElementById('authPage').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
             syncUserData();
@@ -314,6 +330,7 @@
         // Sync full user data from server
         function syncUserData() {
             if (!currentUser) return;
+            addDebugLog("🔄 Syncing...");
             callApi('sync', { uid: currentUser.uid, email: currentUser.email }, (res) => {
                 if (res.success) {
                     currentUser = res.user;
@@ -327,7 +344,7 @@
             loadLeaderboard();
         }
 
-        // Render dashboard with all data
+        // Render dashboard with all data (same as before)
         function renderUI(data) {
             document.getElementById('userName').innerText = currentUser.name;
             document.getElementById('userUid').innerText = currentUser.uid;
@@ -342,25 +359,4 @@
             if (verified) {
                 badgeSpan.className = 'text-[10px] px-2 py-0.5 rounded-full badge-verified';
                 badgeSpan.innerText = 'Verified';
-            } else {
-                badgeSpan.className = 'text-[10px] px-2 py-0.5 rounded-full badge-unverified';
-                badgeSpan.innerText = 'Unverified';
-            }
-
-            // Announcements
-            if (data.announcements && data.announcements.length) {
-                document.getElementById('announcementText').innerHTML = data.announcements[0][1];
-            }
-
-            // Transaction history
-            const txDiv = document.getElementById('txHistory');
-            if (data.transactions && data.transactions.length) {
-                txDiv.innerHTML = data.transactions.map(tx => `<div class="flex justify-between border-b border-white/10 py-1"><span>${tx.type}</span><span>${parseFloat(tx.amt).toFixed(2)} HOPE</span></div>`).join('');
-            } else txDiv.innerHTML = '<p class="text-center text-slate-500">No transactions</p>';
-
-            // Mining UI
-            updateMiningButton();
-            loadChatMessages();
-
-            // Admin check
-       
+            } el

@@ -2,368 +2,91 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HOPE NETWORK | Debug Mode</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>HOPE NETWORK - API Test</title>
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        body { background: #0a0c10; color: #eef2ff; }
-        .glass {
-            background: rgba(18, 25, 45, 0.6);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 2rem;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #8b5cf6);
-            transition: all 0.2s ease;
-            font-weight: 700;
-            border-radius: 1.5rem;
-        }
-        .btn-primary:active { transform: scale(0.97); }
-        .page { display: none; animation: fade 0.3s ease; padding-bottom: 6rem; }
-        .active-page { display: block; }
-        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-        .nav-item {
-            color: #6c7a8e;
-            font-weight: 600;
-            font-size: 0.7rem;
-            transition: 0.2s;
-        }
-        .nav-active { color: #8b5cf6; text-shadow: 0 0 5px rgba(139,92,246,0.5); }
-        .badge-verified { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid #22c55e40; }
-        .badge-unverified { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid #ef444440; }
-        .toast {
-            position: fixed;
-            bottom: 5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e293b;
-            border-radius: 2rem;
-            padding: 0.75rem 1.5rem;
-            font-size: 0.75rem;
-            z-index: 200;
-            border-left: 4px solid #4f46e5;
-            display: none;
-            white-space: nowrap;
-        }
-        .loader { border: 2px solid #ffffff20; border-top: 2px solid #8b5cf6; border-radius: 50%; width: 1rem; height: 1rem; animation: spin 0.8s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #0f1222; }
-        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
-        input, textarea { background: #0f1222; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 0.75rem 1rem; color: white; font-size: 0.85rem; outline: none; }
-        input:focus, textarea:focus { border-color: #8b5cf6; }
-        .debug-log {
-            font-family: monospace;
-            font-size: 0.7rem;
-            background: #00000088;
-            border-radius: 0.5rem;
-            padding: 0.5rem;
-            margin-top: 1rem;
-            max-height: 150px;
-            overflow-y: auto;
-            color: #a0f;
-        }
+        body { font-family: monospace; background: #0a0c10; color: #fff; padding: 20px; max-width: 500px; margin: auto; }
+        button { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 16px; margin: 10px 0; }
+        .debug { background: #1e1e2e; padding: 12px; border-radius: 12px; font-size: 12px; white-space: pre-wrap; overflow-x: auto; margin-top: 20px; }
+        input { background: #1e1e2e; border: 1px solid #4f46e5; padding: 10px; border-radius: 8px; color: white; width: 100%; margin: 8px 0; }
     </style>
 </head>
-<body class="p-4 max-w-md mx-auto relative">
+<body>
+    <h1>HOPE NETWORK - API Test</h1>
+    <p>Your API URL: <code id="apiUrlDisplay"></code></p>
+    <button id="testBtn">🔌 Test API Connection</button>
+    <div id="debug" class="debug">Waiting for test...</div>
 
-    <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="toast"></div>
-
-    <!-- AUTH PAGE -->
-    <div id="authPage" class="min-h-screen flex flex-col justify-center">
-        <div class="text-center mb-6">
-            <h1 class="text-5xl font-black tracking-tighter bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">HOPE</h1>
-            <p class="text-xs text-slate-500 mt-2">Decentralized Digital Asset</p>
-        </div>
-        <div class="glass p-6 space-y-4">
-            <div id="regFields" class="hidden space-y-4">
-                <input type="text" id="regName" placeholder="Full Name" class="w-full">
-                <input type="text" id="regRef" placeholder="Referral Code (optional)" class="w-full">
-            </div>
-            <input type="email" id="loginEmail" placeholder="Email address" class="w-full">
-            <input type="password" id="loginPass" placeholder="Password" class="w-full">
-            <button id="authBtn" onclick="handleAuth()" class="w-full py-3 btn-primary uppercase tracking-wider text-sm">Continue</button>
-            <p class="text-center text-xs text-slate-400 cursor-pointer" onclick="toggleAuthMode()">
-                <span id="authToggleText">Create new account →</span>
-            </p>
-        </div>
-
-        <!-- Debug area: API Test Button and Logs -->
-        <div class="mt-6 glass p-4">
-            <button onclick="testAPIConnection()" class="w-full py-2 bg-indigo-800 rounded-xl text-xs font-bold uppercase tracking-wider">Test API Connection</button>
-            <div id="apiTestResult" class="text-xs text-center mt-2"></div>
-            <div id="debugLog" class="debug-log text-[10px] mt-3">
-                <b>📡 Debug Log</b><br>
-                Ready. Click test button.
-            </div>
-        </div>
-    </div>
-
-    <!-- MAIN APP (same as before) -->
-    <div id="mainApp" class="hidden">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <div class="flex items-center gap-2">
-                    <h2 id="userName" class="text-xl font-bold">---</h2>
-                    <span id="verifyBadge" class="text-[10px] px-2 py-0.5 rounded-full badge-unverified">Unverified</span>
-                </div>
-                <p id="userUid" class="text-[10px] font-mono text-indigo-300/70">HOPE-XXXX</p>
-            </div>
-            <div class="text-right">
-                <p id="userBalance" class="text-3xl font-black">0.00</p>
-                <p class="text-[9px] uppercase tracking-wider text-slate-400">HOPE Balance</p>
-            </div>
-        </div>
-
-        <!-- Pages (same as before) -->
-        <div id="homePage" class="page active-page space-y-6">
-            <div class="glass p-4 border-l-4 border-indigo-500">
-                <p class="text-[10px] font-bold uppercase text-indigo-400">📢 Network Update</p>
-                <p id="announcementText" class="text-sm mt-1 italic">Syncing...</p>
-            </div>
-            <div class="glass p-8 text-center">
-                <div class="relative w-44 h-44 mx-auto flex items-center justify-center rounded-full mining-ring border-2 border-indigo-500/40">
-                    <div id="miningPulse" class="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping hidden"></div>
-                    <span id="miningValue" class="text-3xl font-black text-indigo-400">0.20</span>
-                </div>
-                <button id="mineActionBtn" onclick="handleMining()" class="mt-6 w-full py-3 btn-primary text-sm uppercase tracking-wider">Initialize Node</button>
-                <p id="miningStatusText" class="text-[11px] text-slate-400 mt-3">Ready to mine</p>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="glass p-3 text-center">
-                    <p class="text-[10px] uppercase text-slate-400">Referrals</p>
-                    <p id="refCount" class="text-xl font-bold">0</p>
-                </div>
-                <div class="glass p-3 text-center">
-                    <p class="text-[10px] uppercase text-slate-400">Rank</p>
-                    <p id="userRank" class="text-xl font-bold">-</p>
-                </div>
-            </div>
-        </div>
-
-        <div id="earnPage" class="page space-y-5">
-            <div class="glass p-5 text-center">
-                <p class="text-xs font-bold uppercase text-indigo-400">Your Referral Link</p>
-                <div class="flex mt-2 gap-2">
-                    <input id="refLink" readonly class="flex-1 text-xs bg-black/30">
-                    <button onclick="copyRefLink()" class="px-3 py-2 bg-indigo-600 rounded-xl text-xs font-bold">Copy</button>
-                </div>
-                <p class="text-[10px] text-slate-400 mt-3">Share and earn 0.1 HOPE per referral</p>
-            </div>
-            <div class="glass p-5">
-                <p class="text-xs font-bold uppercase text-indigo-400 mb-2">Invite Leaderboard</p>
-                <div id="leaderboardList" class="space-y-2 max-h-60 overflow-y-auto text-sm"></div>
-            </div>
-        </div>
-
-        <div id="walletPage" class="page space-y-5">
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-3">Send HOPE</h3>
-                <input id="p2pTarget" type="text" placeholder="Recipient UID" class="w-full mb-2">
-                <input id="p2pAmount" type="number" placeholder="Amount" class="w-full mb-3">
-                <button onclick="sendP2P()" class="w-full py-2 btn-primary text-xs uppercase">Transfer</button>
-            </div>
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-3">Withdraw</h3>
-                <input id="withdrawAddr" type="text" placeholder="Wallet Address" class="w-full mb-2">
-                <input id="withdrawAmount" type="number" placeholder="Amount" class="w-full mb-3">
-                <button onclick="requestWithdraw()" class="w-full py-2 bg-purple-700 rounded-xl text-xs uppercase font-bold">Request Withdrawal</button>
-            </div>
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">Recent Activity</h3>
-                <div id="txHistory" class="space-y-2 max-h-52 overflow-y-auto text-xs"></div>
-            </div>
-        </div>
-
-        <div id="profilePage" class="page space-y-5">
-            <div class="glass p-5">
-                <p class="text-xs uppercase text-indigo-400">Account Details</p>
-                <p class="text-sm mt-1"><span class="text-slate-400">Name:</span> <span id="profileName"></span></p>
-                <p class="text-sm"><span class="text-slate-400">Email:</span> <span id="profileEmail"></span></p>
-                <p class="text-sm"><span class="text-slate-400">UID:</span> <span id="profileUid"></span></p>
-                <p class="text-sm"><span class="text-slate-400">Verified:</span> <span id="profileVerified"></span></p>
-            </div>
-            <div class="glass p-5">
-                <h3 class="text-xs font-bold uppercase text-indigo-400 mb-2">Support Chat</h3>
-                <div id="chatBox" class="h-40 overflow-y-auto space-y-2 bg-black/20 rounded-xl p-2 text-xs mb-2"></div>
-                <div class="flex gap-2">
-                    <input id="chatMsg" type="text" placeholder="Type a message..." class="flex-1 text-xs">
-                    <button onclick="sendChat()" class="px-3 py-2 bg-indigo-600 rounded-xl text-xs">Send</button>
-                </div>
-            </div>
-            <button onclick="logout()" class="w-full text-center text-red-400/70 text-xs uppercase font-bold py-4">Disconnect Wallet</button>
-        </div>
-
-        <div id="adminPage" class="page space-y-5">
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">Broadcast Announcement</h3>
-                <textarea id="adminAnnounce" rows="2" class="w-full text-xs mb-2" placeholder="Message to all users..."></textarea>
-                <button onclick="postAnnouncement()" class="w-full py-2 bg-indigo-600 rounded-xl text-xs font-bold">Post</button>
-            </div>
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">System Settings</h3>
-                <div class="flex justify-between items-center">
-                    <span class="text-xs">Mining Rate (HOPE/day)</span>
-                    <input id="miningRateInput" type="number" step="0.01" class="w-24 text-xs">
-                    <button onclick="updateMiningRate()" class="px-3 py-1 bg-indigo-500 rounded-xl text-xs">Set</button>
-                </div>
-            </div>
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">User Messages & Verify</h3>
-                <div id="adminChatList" class="space-y-3 max-h-80 overflow-y-auto"></div>
-            </div>
-        </div>
-
-        <!-- Bottom Navigation -->
-        <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-md glass flex justify-around py-2 px-3 rounded-2xl z-50">
-            <button onclick="showPage('home')" class="nav-item flex flex-col items-center gap-0.5 nav-active" id="nav-home">⚡<span class="text-[9px]">Mine</span></button>
-            <button onclick="showPage('earn')" class="nav-item flex flex-col items-center gap-0.5" id="nav-earn">📢<span class="text-[9px]">Earn</span></button>
-            <button onclick="showPage('wallet')" class="nav-item flex flex-col items-center gap-0.5" id="nav-wallet">💎<span class="text-[9px]">Wallet</span></button>
-            <button onclick="showPage('profile')" class="nav-item flex flex-col items-center gap-0.5" id="nav-profile">👤<span class="text-[9px]">Profile</span></button>
-            <button id="adminNavBtn" onclick="showPage('admin')" class="nav-item hidden flex flex-col items-center gap-0.5" id="nav-admin">⚙️<span class="text-[9px]">Admin</span></button>
-        </div>
-    </div>
+    <hr>
+    <h3>Quick Registration Test</h3>
+    <input type="text" id="email" placeholder="Email" value="test@example.com">
+    <input type="text" id="pass" placeholder="Password" value="123456">
+    <input type="text" id="name" placeholder="Full Name" value="Test User">
+    <button id="registerBtn">Create Account</button>
 
     <script>
-        // ========== CONFIGURATION ==========
-        // ** IMPORTANT: Make sure this URL matches your deployed web app exactly **
+        // --- CONFIGURATION ---
         const API_URL = "https://script.google.com/macros/s/AKfycbxuHLqQPQfqWtDT4ZGCwE_w1YypVYIS7TiJZ8vjudnKMi6zPI0T_IFKYE351g7GzOYinA/exec";
         
-        let currentUser = null;
-        let syncInterval = null;
+        document.getElementById('apiUrlDisplay').innerText = API_URL;
 
-        // Log to debug panel
-        function addDebugLog(msg, isError = false) {
-            const logDiv = document.getElementById('debugLog');
-            if (!logDiv) return;
-            const time = new Date().toLocaleTimeString();
-            const color = isError ? 'text-red-400' : 'text-indigo-300';
-            logDiv.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-            console.log(msg);
-        }
-
-        // Helper: JSONP call with error handling
         function callApi(action, payload, callback) {
-            addDebugLog(`📤 Calling action: ${action}`, false);
             const callbackName = 'cb_' + Math.random().toString(36).substr(2);
             window[callbackName] = function(data) {
-                addDebugLog(`📥 Response from ${action}: ${JSON.stringify(data).substring(0, 200)}`, false);
                 delete window[callbackName];
-                if (document.body.contains(script)) document.body.removeChild(script);
-                if (callback) callback(data);
+                document.body.removeChild(script);
+                callback(data);
             };
             const script = document.createElement('script');
             script.onerror = function() {
-                addDebugLog(`❌ Script load error for action: ${action}`, true);
                 delete window[callbackName];
                 document.body.removeChild(script);
-                if (callback) callback({ success: false, msg: "Network error - check backend URL" });
+                callback({ success: false, msg: "Script load error" });
             };
             script.src = `${API_URL}?callback=${callbackName}&action=${action}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
             document.body.appendChild(script);
         }
 
-        // Test API connection manually
-        function testAPIConnection() {
-            addDebugLog("🔌 Testing API connection...");
-            const resultDiv = document.getElementById('apiTestResult');
-            resultDiv.innerHTML = '<span class="loader"></span> Testing...';
+        function log(msg) {
+            const div = document.getElementById('debug');
+            div.innerHTML += `<div>> ${msg}</div>`;
+            div.scrollTop = div.scrollHeight;
+            console.log(msg);
+        }
+
+        function testAPI() {
+            log("Testing API connection...");
             callApi('getSettings', {}, (res) => {
+                log("Response: " + JSON.stringify(res));
                 if (res && res.success !== undefined) {
-                    resultDiv.innerHTML = '✅ API connected! Received: ' + JSON.stringify(res).substring(0, 100);
-                    addDebugLog(`✅ API test succeeded: ${JSON.stringify(res)}`);
+                    log("✅ API is reachable!");
                 } else {
-                    resultDiv.innerHTML = '❌ API unreachable or returned error. Check URL and CORS.';
-                    addDebugLog(`❌ API test failed: ${JSON.stringify(res)}`, true);
+                    log("❌ API error or unreachable");
                 }
             });
         }
 
-        // Show toast notification
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.innerText = msg;
-            toast.style.display = 'block';
-            toast.style.borderLeftColor = isError ? '#ef4444' : '#4f46e5';
-            setTimeout(() => toast.style.display = 'none', 3000);
-            addDebugLog(`🔔 Toast: ${msg}`, isError);
-        }
-
-        // Auth mode toggle
-        let isRegisterMode = false;
-        function toggleAuthMode() {
-            isRegisterMode = !isRegisterMode;
-            const regDiv = document.getElementById('regFields');
-            regDiv.classList.toggle('hidden', !isRegisterMode);
-            document.getElementById('authToggleText').innerText = isRegisterMode ? '← Back to login' : 'Create new account →';
-            document.getElementById('authBtn').innerText = isRegisterMode ? 'Register Node' : 'Connect Node';
-        }
-
-        // Handle registration/login
-        function handleAuth() {
-            const email = document.getElementById('loginEmail').value.trim();
-            const pass = document.getElementById('loginPass').value.trim();
-            if (!email || !pass) return showToast('Email and password required', true);
-            if (isRegisterMode) {
-                const name = document.getElementById('regName').value.trim();
-                if (!name) return showToast('Full name required', true);
-                const ref = document.getElementById('regRef').value.trim();
-                callApi('register', { email, pass, name, ref: ref || "none" }, (res) => {
-                    if (res.success) {
-                        showToast(res.msg || 'Registration success, please login');
-                        toggleAuthMode();
-                        document.getElementById('loginEmail').value = email;
-                        document.getElementById('loginPass').value = '';
-                    } else showToast(res.msg, true);
-                });
-            } else {
-                callApi('login', { email, pass }, (res) => {
-                    if (res.success) {
-                        currentUser = res.user;
-                        localStorage.setItem('hopeUser', JSON.stringify(currentUser));
-                        startApp();
-                    } else showToast(res.msg, true);
-                });
+        function testRegister() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('pass').value;
+            const name = document.getElementById('name').value;
+            if (!email || !pass || !name) {
+                log("Please fill all fields");
+                return;
             }
-        }
-
-        // Start main app after login
-        function startApp() {
-            addDebugLog("🚀 Starting main app");
-            document.getElementById('authPage').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            syncUserData();
-            if (syncInterval) clearInterval(syncInterval);
-            syncInterval = setInterval(syncUserData, 30000);
-        }
-
-        // Sync full user data from server
-        function syncUserData() {
-            if (!currentUser) return;
-            addDebugLog("🔄 Syncing user data...");
-            callApi('sync', { uid: currentUser.uid, email: currentUser.email }, (res) => {
+            log(`Registering ${email}...`);
+            callApi('register', { email, pass, name, ref: "none" }, (res) => {
+                log("Register response: " + JSON.stringify(res));
                 if (res.success) {
-                    currentUser = res.user;
-                    localStorage.setItem('hopeUser', JSON.stringify(currentUser));
-                    renderUI(res);
+                    log("✅ Registration successful! You can now login.");
                 } else {
-                    showToast("Session expired. Please login again.", true);
-                    logout();
+                    log("❌ Registration failed: " + res.msg);
                 }
             });
-            loadLeaderboard();
         }
 
-        // Render dashboard with all data
-        function renderUI(data) {
-            addDebugLog("🎨 Rendering UI");
-            document.getElementById('userName').innerText = currentUser.name;
-            document.getElementById('userUid').innerText = currentUser.uid;
-            document.getElementById('userBalance').innerText = parseFloat(currentUser.bal).toFixed(2);
-            document.getElementById('refCount').innerText = currentUser.refCou
+        document.getElementById('testBtn').onclick = testAPI;
+        document.getElementById('registerBtn').onclick = testRegister;
+    </script>
+</body>
+</html>

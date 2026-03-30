@@ -52,10 +52,10 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         input, textarea { background: #0f1222; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 0.75rem 1rem; color: white; font-size: 0.85rem; outline: none; }
         input:focus, textarea:focus { border-color: #8b5cf6; }
-        .debug-log { font-family: monospace; font-size: 0.65rem; background: #000000aa; border-radius: 0.5rem; padding: 0.5rem; margin-top: 1rem; max-height: 120px; overflow-y: auto; color: #a0f; display: none; } /* hidden by default, can enable for debugging */
+        .debug-log { font-family: monospace; font-size: 0.65rem; background: #000000aa; border-radius: 0.5rem; padding: 0.5rem; margin-top: 1rem; max-height: 120px; overflow-y: auto; color: #a0f; display: none; }
     </style>
 </head>
-<body class="p-4 max-w-md mx-auto relative">
+<body class="p-4 max-w-md mx-auto relative min-h-screen">
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
@@ -68,6 +68,7 @@
             <button id="testApiBtn" class="mt-4 px-4 py-1 bg-indigo-800/50 rounded-full text-xs">🔌 Test API</button>
             <div id="apiStatus" class="text-xs mt-2 text-slate-400">Not tested</div>
         </div>
+
         <div class="glass p-6 space-y-4">
             <div id="regFields" class="hidden space-y-4">
                 <input type="text" id="regName" placeholder="Full Name" class="w-full">
@@ -76,12 +77,10 @@
             <input type="email" id="loginEmail" placeholder="Email address" class="w-full">
             <input type="password" id="loginPass" placeholder="Password" class="w-full">
             <button id="authBtn" class="w-full py-3 btn-primary uppercase tracking-wider text-sm">Continue</button>
-            <p class="text-center text-xs text-slate-400 cursor-pointer" onclick="toggleAuthMode()">
-                <span id="authToggleText">Create new account →</span>
-            </p>
+            <p class="text-center text-xs text-slate-400 cursor-pointer" id="authToggle">Create new account →</p>
         </div>
-        <!-- Hidden debug log (can be enabled by removing display:none) -->
-        <div id="debugLog" class="debug-log mt-4 text-[9px]" style="display:none;"></div>
+
+        <div id="debugLog" class="debug-log mt-4"></div>
     </div>
 
     <!-- Main App -->
@@ -105,7 +104,7 @@
         <div id="homePage" class="page active-page space-y-6">
             <div class="glass p-4 border-l-4 border-indigo-500">
                 <p class="text-[10px] font-bold uppercase text-indigo-400">📢 Network Update</p>
-                <p id="announcementText" class="text-sm mt-1 italic">Syncing...</p>
+                <p id="announcementText" class="text-sm mt-1 italic">Loading announcement...</p>
             </div>
             <div class="glass p-8 text-center">
                 <div class="relative w-44 h-44 mx-auto flex items-center justify-center rounded-full border-2 border-indigo-500/40">
@@ -176,7 +175,7 @@
                     <button onclick="sendChat()" class="px-3 py-2 bg-indigo-600 rounded-xl text-xs">Send</button>
                 </div>
             </div>
-            <button onclick="logout()" class="w-full text-center text-red-400/70 text-xs uppercase font-bold py-4">Disconnect Wallet</button>
+            <button onclick="logout()" class="w-full text-center text-red-400/70 text-xs uppercase font-bold py-4">Disconnect</button>
         </div>
 
         <div id="adminPage" class="page space-y-5">
@@ -193,10 +192,6 @@
                     <button onclick="updateMiningRate()" class="px-3 py-1 bg-indigo-500 rounded-xl text-xs">Set</button>
                 </div>
             </div>
-            <div class="glass p-5">
-                <h3 class="text-sm font-bold uppercase text-indigo-400 mb-2">User Messages & Verify</h3>
-                <div id="adminChatList" class="space-y-3 max-h-80 overflow-y-auto"></div>
-            </div>
         </div>
 
         <!-- Bottom Navigation -->
@@ -210,38 +205,48 @@
     </div>
 
     <script>
-        // ========== CONFIGURATION (same as working test) ==========
+        // ==================== CONFIG ====================
         const API_URL = "https://script.google.com/macros/s/AKfycbxuHLqQPQfqWtDT4ZGCwE_w1YypVYIS7TiJZ8vjudnKMi6zPI0T_IFKYE351g7GzOYinA/exec";
         
         let currentUser = null;
         let syncInterval = null;
 
-        // JSONP call (exact same as working test)
-        function callApi(action, payload, callback) {
-            const callbackName = 'cb_' + Math.random().toString(36).substr(2);
-            window[callbackName] = function(data) {
-                delete window[callbackName];
-                if (document.body.contains(script)) document.body.removeChild(script);
-                if (callback) callback(data);
-            };
-            const script = document.createElement('script');
-            script.onerror = function() {
-                delete window[callbackName];
-                document.body.removeChild(script);
-                if (callback) callback({ success: false, msg: "Script load error" });
-            };
-            script.src = `${API_URL}?callback=${callbackName}&action=${action}&payload=${encodeURIComponent(JSON.stringify(payload))}`;
-            document.body.appendChild(script);
-        }
-
-        // Simple logging (optional)
-        function log(msg) {
-            console.log(msg);
-            // optional debug display
+        // ==================== API CALL WITH FETCH ====================
+        async function callApi(action, payload = {}) {
             const logDiv = document.getElementById('debugLog');
-            if (logDiv && logDiv.style.display !== 'none') {
-                logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-                logDiv.scrollTop = logDiv.scrollHeight;
+            if (logDiv.style.display !== 'none') logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] → ${action}</div>`;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        payload: payload
+                    }),
+                    redirect: 'follow'
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error("Invalid JSON response:", text);
+                    throw new Error("Invalid response from server");
+                }
+
+                if (logDiv.style.display !== 'none') logDiv.innerHTML += `<div class="text-green-400">[${new Date().toLocaleTimeString()}] ← ${action} OK</div>`;
+                return data;
+
+            } catch (error) {
+                console.error(`API Error (${action}):`, error);
+                if (logDiv.style.display !== 'none') logDiv.innerHTML += `<div class="text-red-400">[${new Date().toLocaleTimeString()}] ← ${action} FAILED: ${error.message}</div>`;
+                return { success: false, msg: error.message || "Network error" };
             }
         }
 
@@ -250,61 +255,65 @@
             toast.innerText = msg;
             toast.style.display = 'block';
             toast.style.borderLeftColor = isError ? '#ef4444' : '#4f46e5';
-            setTimeout(() => toast.style.display = 'none', 3000);
-            log(msg);
+            setTimeout(() => toast.style.display = 'none', 4000);
+            console.log(isError ? 'ERROR:' : 'INFO:', msg);
         }
 
-        // Test API
-        function testAPI() {
-            log("Testing API...");
+        // ==================== TEST API ====================
+        async function testAPI() {
             const statusDiv = document.getElementById('apiStatus');
             statusDiv.innerHTML = '<span class="loader"></span> Testing...';
-            callApi('getSettings', {}, (res) => {
-                log("API response: " + JSON.stringify(res));
-                if (res && res.success !== undefined) {
-                    statusDiv.innerHTML = '✅ API connected!';
-                    statusDiv.style.color = '#4ade80';
-                } else {
-                    statusDiv.innerHTML = '❌ API unreachable';
-                    statusDiv.style.color = '#f87171';
-                }
-            });
+
+            const res = await callApi('getSettings', {});
+            if (res && res.success !== undefined) {
+                statusDiv.innerHTML = '✅ API connected!';
+                statusDiv.style.color = '#4ade80';
+                showToast("API is working");
+            } else {
+                statusDiv.innerHTML = '❌ API unreachable';
+                statusDiv.style.color = '#f87171';
+                showToast("API test failed", true);
+            }
         }
 
-        // Auth mode toggle
+        // ==================== AUTH ====================
         let isRegisterMode = false;
+
         function toggleAuthMode() {
             isRegisterMode = !isRegisterMode;
             document.getElementById('regFields').classList.toggle('hidden', !isRegisterMode);
-            document.getElementById('authToggleText').innerText = isRegisterMode ? '← Back to login' : 'Create new account →';
+            document.getElementById('authToggle').innerText = isRegisterMode ? '← Back to login' : 'Create new account →';
             document.getElementById('authBtn').innerText = isRegisterMode ? 'Register Node' : 'Connect Node';
         }
 
-        // Handle auth
-        function handleAuth() {
+        async function handleAuth() {
             const email = document.getElementById('loginEmail').value.trim();
             const pass = document.getElementById('loginPass').value.trim();
+
             if (!email || !pass) return showToast('Email and password required', true);
+
             if (isRegisterMode) {
                 const name = document.getElementById('regName').value.trim();
                 if (!name) return showToast('Full name required', true);
-                const ref = document.getElementById('regRef').value.trim();
-                callApi('register', { email, pass, name, ref: ref || "none" }, (res) => {
-                    if (res.success) {
-                        showToast(res.msg || 'Registration success, please login');
-                        toggleAuthMode();
-                        document.getElementById('loginEmail').value = email;
-                        document.getElementById('loginPass').value = '';
-                    } else showToast(res.msg, true);
-                });
+                const ref = document.getElementById('regRef').value.trim() || "none";
+
+                const res = await callApi('register', { email, pass, name, ref });
+                if (res.success) {
+                    showToast(res.msg || 'Registration successful. Please login.');
+                    toggleAuthMode();
+                    document.getElementById('loginPass').value = '';
+                } else {
+                    showToast(res.msg || 'Registration failed', true);
+                }
             } else {
-                callApi('login', { email, pass }, (res) => {
-                    if (res.success) {
-                        currentUser = res.user;
-                        localStorage.setItem('hopeUser', JSON.stringify(currentUser));
-                        startApp();
-                    } else showToast(res.msg, true);
-                });
+                const res = await callApi('login', { email, pass });
+                if (res.success) {
+                    currentUser = res.user;
+                    localStorage.setItem('hopeUser', JSON.stringify(currentUser));
+                    startApp();
+                } else {
+                    showToast(res.msg || 'Login failed', true);
+                }
             }
         }
 
@@ -313,52 +322,56 @@
             document.getElementById('mainApp').classList.remove('hidden');
             syncUserData();
             if (syncInterval) clearInterval(syncInterval);
-            syncInterval = setInterval(syncUserData, 30000);
+            syncInterval = setInterval(syncUserData, 30000); // sync every 30s
         }
 
-        function syncUserData() {
+        async function syncUserData() {
             if (!currentUser) return;
-            log("Syncing...");
-            callApi('sync', { uid: currentUser.uid, email: currentUser.email }, (res) => {
-                if (res.success) {
-                    currentUser = res.user;
-                    localStorage.setItem('hopeUser', JSON.stringify(currentUser));
-                    renderUI(res);
-                } else {
-                    showToast("Session expired, please login again", true);
-                    logout();
-                }
-            });
-            loadLeaderboard();
+            const res = await callApi('sync', { uid: currentUser.uid, email: currentUser.email });
+            if (res.success) {
+                currentUser = res.user;
+                localStorage.setItem('hopeUser', JSON.stringify(currentUser));
+                renderUI(res);
+            } else {
+                showToast("Session expired", true);
+                logout();
+            }
         }
 
         function renderUI(data) {
-            document.getElementById('userName').innerText = currentUser.name;
-            document.getElementById('userUid').innerText = currentUser.uid;
-            document.getElementById('userBalance').innerText = parseFloat(currentUser.bal).toFixed(2);
+            document.getElementById('userName').innerText = currentUser.name || 'User';
+            document.getElementById('userUid').innerText = currentUser.uid || 'HOPE-XXXX';
+            document.getElementById('userBalance').innerText = parseFloat(currentUser.bal || 0).toFixed(2);
             document.getElementById('refCount').innerText = currentUser.refCount || 0;
-            document.getElementById('profileName').innerText = currentUser.name;
-            document.getElementById('profileEmail').innerText = currentUser.email;
-            document.getElementById('profileUid').innerText = currentUser.uid;
-            const verified = currentUser.verified === 'TRUE';
+
+            // Profile
+            document.getElementById('profileName').innerText = currentUser.name || '';
+            document.getElementById('profileEmail').innerText = currentUser.email || '';
+            document.getElementById('profileUid').innerText = currentUser.uid || '';
+
+            const verified = currentUser.verified === 'TRUE' || currentUser.verified === true;
             document.getElementById('profileVerified').innerHTML = verified ? '✅ Verified' : '❌ Not verified';
-            const badgeSpan = document.getElementById('verifyBadge');
+
+            const badge = document.getElementById('verifyBadge');
             if (verified) {
-                badgeSpan.className = 'text-[10px] px-2 py-0.5 rounded-full badge-verified';
-                badgeSpan.innerText = 'Verified';
+                badge.className = 'text-[10px] px-2 py-0.5 rounded-full badge-verified';
+                badge.innerText = 'Verified';
             } else {
-                badgeSpan.className = 'text-[10px] px-2 py-0.5 rounded-full badge-unverified';
-                badgeSpan.innerText = 'Unverified';
+                badge.className = 'text-[10px] px-2 py-0.5 rounded-full badge-unverified';
+                badge.innerText = 'Unverified';
             }
 
+            // Announcement
             if (data.announcements && data.announcements.length) {
-                document.getElementById('announcementText').innerHTML = data.announcements[0][1];
+                document.getElementById('announcementText').innerText = data.announcements[0][1] || 'No announcement';
             }
 
+            // Transactions
             const txDiv = document.getElementById('txHistory');
             if (data.transactions && data.transactions.length) {
-                txDiv.innerHTML = data.transactions.map(tx => `<div class="flex justify-between border-b border-white/10 py-1"><span>${tx.type}</span><span>${parseFloat(tx.amt).toFixed(2)} HOPE</span></div>`).join('');
-            } else txDiv.innerHTML = '<p class="text-center text-slate-500">No transactions</p>';
-
-            updateMiningButton();
-     
+                txDiv.innerHTML = data.transactions.map(tx => `
+                    <div class="flex justify-between border-b border-white/10 py-1">
+                        <span>${tx.type || 'Transaction'}</span>
+                        <span>${parseFloat(tx.amt || 0).toFixed(2)} HOPE</span>
+                    </div>
+    

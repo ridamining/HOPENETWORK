@@ -52,17 +52,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         input, textarea { background: #0f1222; border: 1px solid #1e2a3a; border-radius: 1rem; padding: 0.75rem 1rem; color: white; font-size: 0.85rem; outline: none; }
         input:focus, textarea:focus { border-color: #8b5cf6; }
-        .debug-log {
-            font-family: monospace;
-            font-size: 0.65rem;
-            background: #000000aa;
-            border-radius: 0.5rem;
-            padding: 0.5rem;
-            margin-top: 1rem;
-            max-height: 120px;
-            overflow-y: auto;
-            color: #a0f;
-        }
+        .debug-log { font-family: monospace; font-size: 0.65rem; background: #000000aa; border-radius: 0.5rem; padding: 0.5rem; margin-top: 1rem; max-height: 120px; overflow-y: auto; color: #a0f; display: none; } /* hidden by default, can enable for debugging */
     </style>
 </head>
 <body class="p-4 max-w-md mx-auto relative">
@@ -90,9 +80,8 @@
                 <span id="authToggleText">Create new account →</span>
             </p>
         </div>
-        <div id="debugLog" class="debug-log mt-4 text-[9px]">
-            📡 Ready. Click "Test API" to check connection.
-        </div>
+        <!-- Hidden debug log (can be enabled by removing display:none) -->
+        <div id="debugLog" class="debug-log mt-4 text-[9px]" style="display:none;"></div>
     </div>
 
     <!-- Main App -->
@@ -119,11 +108,10 @@
                 <p id="announcementText" class="text-sm mt-1 italic">Syncing...</p>
             </div>
             <div class="glass p-8 text-center">
-                <div class="relative w-44 h-44 mx-auto flex items-center justify-center rounded-full mining-ring border-2 border-indigo-500/40">
-                    <div id="miningPulse" class="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping hidden"></div>
+                <div class="relative w-44 h-44 mx-auto flex items-center justify-center rounded-full border-2 border-indigo-500/40">
                     <span id="miningValue" class="text-3xl font-black text-indigo-400">0.20</span>
                 </div>
-                <button id="mineActionBtn" onclick="handleMining()" class="mt-6 w-full py-3 btn-primary text-sm uppercase tracking-wider">Initialize Node</button>
+                <button id="mineActionBtn" class="mt-6 w-full py-3 btn-primary text-sm uppercase tracking-wider">Initialize Node</button>
                 <p id="miningStatusText" class="text-[11px] text-slate-400 mt-3">Ready to mine</p>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -222,13 +210,13 @@
     </div>
 
     <script>
-        // ========== CONFIGURATION ==========
+        // ========== CONFIGURATION (same as working test) ==========
         const API_URL = "https://script.google.com/macros/s/AKfycbxuHLqQPQfqWtDT4ZGCwE_w1YypVYIS7TiJZ8vjudnKMi6zPI0T_IFKYE351g7GzOYinA/exec";
         
         let currentUser = null;
         let syncInterval = null;
 
-        // JSONP call (identical to working test)
+        // JSONP call (exact same as working test)
         function callApi(action, payload, callback) {
             const callbackName = 'cb_' + Math.random().toString(36).substr(2);
             window[callbackName] = function(data) {
@@ -246,13 +234,15 @@
             document.body.appendChild(script);
         }
 
-        function addDebugLog(msg, isError = false) {
-            const logDiv = document.getElementById('debugLog');
-            if (!logDiv) return;
-            const time = new Date().toLocaleTimeString();
-            logDiv.innerHTML += `<div style="color:${isError ? '#f87171' : '#a78bfa'}">[${time}] ${msg}</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+        // Simple logging (optional)
+        function log(msg) {
             console.log(msg);
+            // optional debug display
+            const logDiv = document.getElementById('debugLog');
+            if (logDiv && logDiv.style.display !== 'none') {
+                logDiv.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }
         }
 
         function showToast(msg, isError = false) {
@@ -261,16 +251,16 @@
             toast.style.display = 'block';
             toast.style.borderLeftColor = isError ? '#ef4444' : '#4f46e5';
             setTimeout(() => toast.style.display = 'none', 3000);
-            addDebugLog(msg, isError);
+            log(msg);
         }
 
         // Test API
         function testAPI() {
-            addDebugLog("🔌 Testing API connection...");
+            log("Testing API...");
             const statusDiv = document.getElementById('apiStatus');
             statusDiv.innerHTML = '<span class="loader"></span> Testing...';
             callApi('getSettings', {}, (res) => {
-                addDebugLog("Response: " + JSON.stringify(res));
+                log("API response: " + JSON.stringify(res));
                 if (res && res.success !== undefined) {
                     statusDiv.innerHTML = '✅ API connected!';
                     statusDiv.style.color = '#4ade80';
@@ -281,7 +271,7 @@
             });
         }
 
-        // Auth mode
+        // Auth mode toggle
         let isRegisterMode = false;
         function toggleAuthMode() {
             isRegisterMode = !isRegisterMode;
@@ -328,7 +318,7 @@
 
         function syncUserData() {
             if (!currentUser) return;
-            addDebugLog("🔄 Syncing...");
+            log("Syncing...");
             callApi('sync', { uid: currentUser.uid, email: currentUser.email }, (res) => {
                 if (res.success) {
                     currentUser = res.user;
@@ -367,4 +357,8 @@
 
             const txDiv = document.getElementById('txHistory');
             if (data.transactions && data.transactions.length) {
-                txDiv.innerHTML = data.transactions.map(tx => `<div class="flex justify-between border-b border-white/10 py-1"><span>${tx.type}</span><span>${parseFloat(tx
+                txDiv.innerHTML = data.transactions.map(tx => `<div class="flex justify-between border-b border-white/10 py-1"><span>${tx.type}</span><span>${parseFloat(tx.amt).toFixed(2)} HOPE</span></div>`).join('');
+            } else txDiv.innerHTML = '<p class="text-center text-slate-500">No transactions</p>';
+
+            updateMiningButton();
+     
